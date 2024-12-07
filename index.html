@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project Manager</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f9;
+      color: #333;
+    }
+
+    .container {
+      width: 80%;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .form-container {
+      margin-bottom: 30px;
+    }
+
+    input[type="text"],
+    input[type="file"] {
+      padding: 10px;
+      width: 100%;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    button {
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    .response {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #e7f7e7;
+      border: 1px solid #4CAF50;
+      border-radius: 5px;
+    }
+
+    .error {
+      background-color: #f8d7da;
+      border-color: #f5c6cb;
+    }
+
+    .links {
+      margin-top: 20px;
+    }
+
+    .links a {
+      color: #0066cc;
+      text-decoration: none;
+      display: block;
+    }
+
+    .links a:hover {
+      text-decoration: underline;
+    }
+
+    /* Top-right corner button */
+    .top-right-button {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background-color: #007BFF;
+      color: white;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      z-index: 1000;
+    }
+
+    .top-right-button:hover {
+      background-color: #0056b3;
+    }
+
+    /* Token re-entry button */
+    .reenter-token-button {
+      position: fixed;
+      top: 70px;
+      right: 20px;
+      background-color: #FF5733;
+      color: white;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      z-index: 1000;
+    }
+
+    .reenter-token-button:hover {
+      background-color: #C0392B;
+    }
+  </style>
+</head>
+
+<body>
+
+  <button class="top-right-button" onclick="document.getElementById('cookieUpload').click()">Upload Cookie</button>
+  <input type="file" id="cookieUpload" style="display: none;" onchange="uploadCookieFile()">
+
+  <!-- Re-enter Token Button -->
+  <button class="reenter-token-button" onclick="reenterToken()">Re-enter Token</button>
+
+  <div class="container">
+    <h1>Project Manager</h1>
+
+    <!-- New Project Form -->
+    <div class="form-container">
+      <h2>Create New Project</h2>
+      <input type="text" id="newProjectTitle" placeholder="Enter project title">
+      <button onclick="createNewProject()">Create Project</button>
+    </div>
+
+    <!-- Open as Template Form -->
+    <div class="form-container">
+      <h2>Open as Template</h2>
+      <input type="text" id="templateUrl" placeholder="Enter template URL">
+      <button onclick="openTemplate()">Open Template</button>
+    </div>
+
+    <!-- Upload Project Form -->
+    <div class="form-container">
+      <h2>Upload Project</h2>
+      <input type="file" id="uploadFile">
+      <button onclick="uploadProject()">Upload Project</button>
+    </div>
+
+    <!-- Response Section -->
+    <div class="response" id="responseMessage" style="display:none;"></div>
+
+    <!-- Links Section -->
+    <div class="links" id="linksSection"></div>
+  </div>
+
+  <script>
+    const serverURL = 'https://82.156.12.45:9210';
+    const responseMessage = document.getElementById('responseMessage');
+    const linksSection = document.getElementById('linksSection');
+    let pollingInterval;
+
+    // Show response message
+    function showResponse(message, isError = false) {
+      responseMessage.innerHTML = message;
+      responseMessage.style.display = 'block';
+      responseMessage.className = isError ? 'response error' : 'response';
+    }
+
+    // Get token from localStorage or prompt the user if not available
+    function getAuthToken() {
+      let token = localStorage.getItem('authToken');
+      if (!token) {
+        token = prompt('Please enter your token:');
+        if (token) {
+          localStorage.setItem('authToken', token);
+        } else {
+          showResponse('Token is required to proceed.', true);
+        }
+      }
+      return token;
+    }
+
+    // Re-enter token and update localStorage
+    function reenterToken() {
+      const newToken = prompt('Please enter your new token:');
+      if (newToken) {
+        localStorage.setItem('authToken', newToken);
+        showResponse('Token updated successfully.');
+      } else {
+        showResponse('Token update failed. Please enter a valid token.', true);
+      }
+    }
+
+    // Upload cookie file
+    function uploadCookieFile() {
+      const token = prompt('Enter admin token'); // Get token
+
+      if (!token) return; // Stop if no token
+
+      const fileInput = document.getElementById('cookieUpload');
+      const file = fileInput.files[0];
+      if (!file) {
+        showResponse('Please select a cookie file to upload', true);
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      showResponse('Uploading cookie file...');
+      fetch(`${serverURL}/upload_cookie`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}` // Add token to request headers
+        },
+        body: formData
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            showResponse('Cookie file uploaded successfully!');
+          } else {
+            showResponse('Failed to upload cookie file.', true);
+          }
+        })
+        .catch(err => showResponse('Error uploading cookie file: ' + err.message, true));
+    }
+
+    function showWait() {
+      showResponse('Please wait ... This could take some time');
+      linksSection.innerHTML = '';
+    }
+
+    // Polling function to check status
+    function pollStatus(requestId) {
+      const token = getAuthToken(); // Get token
+
+      if (!token) return; // Stop if no token
+
+      fetch(`${serverURL}/check_status/${requestId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}` // Add token to request headers
+        }
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.status.status === 'Completed') {
+            clearInterval(pollingInterval);
+            showResponse('Your request has been successfully processed!');
+            displayLinks(data.status);
+          } else if (data.status === 'In Progress') {
+            showResponse('Your request is still being processed. Please wait...');
+          } else if (data.status === 'Waiting') {
+            showResponse('Your request is waiting to be processed. Please wait...');
+          } else {
+            clearInterval(pollingInterval);
+            showResponse('There was an error processing your request.', true);
+          }
+        })
+        .catch(err => {
+          clearInterval(pollingInterval);
+          showResponse('Error checking status. ' + err.message, true);
+        });
+    }
+
+    // Create new project
+    function createNewProject() {
+      const title = document.getElementById('newProjectTitle').value;
+      if (!title) {
+        showResponse('Project title is required', true);
+        return;
+      }
+
+      showWait();
+      const token = getAuthToken(); // Get token
+
+      if (!token) return; // Stop if no token
+
+      fetch(serverURL + '/new_project', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Add token to request headers
+        },
+        body: JSON.stringify({ title })
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.request_id) {
+            showResponse('Project creation request submitted. Tracking request...');
+            pollingInterval = setInterval(() => pollStatus(data.request_id), 3000); // Poll every 3 seconds
+          } else {
+            showResponse('An error occurred while creating the project.', true);
+          }
+        })
+        .catch(err => showResponse('Failed to create project. ' + err.message, true));
+    }
+
+    // Open project as template
+    function openTemplate() {
+      const url = document.getElementById('templateUrl').value;
+      if (!url) {
+        showResponse('Template URL is required', true);
+        return;
+      }
+
+      showWait();
+      const token = getAuthToken(); // Get token
+
+      if (!token) return; // Stop if no token
+
+      fetch(serverURL + '/open_as_template', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Add token to request headers
+        },
+        body: JSON.stringify({ template_url: url })
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.request_id) {
+            showResponse('Template opening request submitted. Tracking request...');
+            pollingInterval = setInterval(() => pollStatus(data.request_id), 3000); // Poll every 3 seconds
+          } else {
+            showResponse('An error occurred while opening the template.', true);
+          }
+        })
+        .catch(err => showResponse('Failed to open template. ' + err.message, true));
+    }
+
+    // Upload project
+    function uploadProject() {
+      const fileInput = document.getElementById('uploadFile');
+      const file = fileInput.files[0];
+      if (!file) {
+        showResponse('Please select a file to upload', true);
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      const token = getAuthToken(); // Get token
+
+      if (!token) return; // Stop if no token
+
+      showWait();
+      fetch(serverURL + '/upload_project', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}` // Add token to request headers
+        },
+        body: formData
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.request_id) {
+            showResponse('Upload request submitted. Tracking request...');
+            pollingInterval = setInterval(() => pollStatus(data.request_id), 3000); // Poll every 3 seconds
+          } else {
+            showResponse('An error occurred while uploading the project.', true);
+          }
+        })
+        .catch(err => showResponse('Failed to upload project. ' + err.message, true));
+    }
+
+    function showLinks(editLink, viewLink) {
+      // Clear any previous content
+      linksSection.innerHTML = '';
+
+      // Create the table
+      const table = document.createElement('table');
+      const tbody = document.createElement('tbody');
+      table.appendChild(tbody);
+
+      // Create the Edit Link row
+      const editLinkRow = document.createElement('tr');
+
+      // Original Edit Link
+      const editLinkOrigCell = document.createElement('td');
+      const editLinkOrig = document.createTextNode('Edit');
+      editLinkOrigCell.appendChild(editLinkOrig);
+      editLinkRow.appendChild(editLinkOrigCell);
+
+      // Edit Link
+      const editLinkCell = document.createElement('td');
+      const editLinkElement = document.createElement('a');
+      editLinkElement.href = editLink;
+      editLinkElement.target = "_blank";
+      editLinkElement.innerText = editLink;
+      editLinkCell.appendChild(editLinkElement);
+      editLinkRow.appendChild(editLinkCell);
+
+      // Copy Button for Edit Link
+      const copyButtonCell = document.createElement('td');
+      const copyButton = document.createElement('button');
+      copyButton.innerText = 'Copy';
+      copyButton.style.fontSize = '12px'; // Adjust font size
+      copyButton.style.padding = '5px 10px'; // Adjust padding
+      copyButton.onclick = function () {
+        copyToClipboard(editLink);
+      };
+      copyButtonCell.appendChild(copyButton);
+      editLinkRow.appendChild(copyButtonCell);
+      tbody.appendChild(editLinkRow);
+
+      // Create the View Link row
+      const viewLinkRow = document.createElement('tr');
+
+      // Original View Link
+      const viewLinkOrigCell = document.createElement('td');
+      const viewLinkOrig = document.createTextNode('View');
+      viewLinkOrigCell.appendChild(viewLinkOrig);
+      viewLinkRow.appendChild(viewLinkOrigCell);
+
+      // View Link
+      const viewLinkCell = document.createElement('td');
+      const viewLinkElement = document.createElement('a');
+      viewLinkElement.href = viewLink;
+      viewLinkElement.target = "_blank";
+      viewLinkElement.innerText = viewLink;
+      viewLinkCell.appendChild(viewLinkElement);
+      viewLinkRow.appendChild(viewLinkCell);
+
+      // Copy Button for View Link
+      const copyButtonViewCell = document.createElement('td');
+      const copyButtonView = document.createElement('button');
+      copyButtonView.innerText = 'Copy';
+      copyButtonView.style.fontSize = '12px'; // Adjust font size
+      copyButtonView.style.padding = '5px 10px'; // Adjust padding
+      copyButtonView.onclick = function () {
+        copyToClipboard(viewLink);
+      };
+      copyButtonViewCell.appendChild(copyButtonView);
+      viewLinkRow.appendChild(copyButtonViewCell);
+      tbody.appendChild(viewLinkRow);
+
+      // Append the table to the links section
+      linksSection.appendChild(table);
+    }
+
+    // You would also need to define the `copyToClipboard` function if it's not already defined.
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(function () {
+        console.log('Async: Copying to clipboard was successful!');
+      }, function (err) {
+        console.error('Async: Could not copy text: ', err);
+      });
+    }
+
+    // Function to copy text to clipboard
+    function copyToClipboard(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+
+    // Display links when request is complete
+    function displayLinks(data) {
+      linksSection.innerHTML = '';
+      if (data.status === 'Completed' && data.edit && data.view) {
+        showLinks(data.edit, data.view);
+      } else {
+        showResponse('Error retrieving project links.', true);
+      }
+    }
+  </script>
+</body>
+
+</html>
