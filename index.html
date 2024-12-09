@@ -433,8 +433,26 @@
       viewLinkRow.appendChild(copyButtonViewCell);
       tbody.appendChild(viewLinkRow);
 
+      // Save Button
+      const saveButton = document.createElement('button');
+      saveButton.innerText = 'Save Links';
+      saveButton.style.marginTop = '10px';
+      saveButton.onclick = function () {
+        saveLinksToFile(editLink, viewLink);
+      };
+
       // Append the table to the links section
       linksSection.appendChild(table);
+      linksSection.appendChild(saveButton);
+    }
+
+    function saveLinksToFile(editLink, viewLink) {
+      const content = `Edit Link: ${editLink}\nView Link: ${viewLink}`;
+      const blob = new Blob([content], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'links.txt';
+      a.click();
     }
 
     // You would also need to define the `copyToClipboard` function if it's not already defined.
