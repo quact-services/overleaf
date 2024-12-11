@@ -143,6 +143,11 @@
       <button onclick="uploadProject()">Upload Project</button>
     </div>
 
+    <div class="form-container">
+      <h2>Join Project</h2>
+      <input type="text" id="joinProjectId" placeholder="Enter the edit link of your project!">
+      <button onclick="joinProject()">Join Project</button>
+    </div>
     <!-- Response Section -->
     <div class="response" id="responseMessage" style="display:none;"></div>
 
@@ -362,6 +367,41 @@
         .catch(err => showResponse('Failed to upload project. ' + err.message, true));
     }
 
+    // Join an existing project
+    // Join an existing project with polling
+    function joinProject() {
+      const projectId = document.getElementById('joinProjectId').value;
+
+      if (!projectId) {
+        showResponse('Project ID is required to join.', true);
+        return;
+      }
+
+      showWait();
+      const token = getAuthToken(); // Get the token
+
+      if (!token) return; // Stop if no token
+
+      fetch(`${serverURL}/join_project`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Add token to request headers
+        },
+        body: JSON.stringify({ url: projectId })
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.request_id) {
+            showResponse('Join project request submitted. Tracking request...');
+            pollingInterval = setInterval(() => pollStatus(data.request_id), 3000); // Poll every 3 seconds
+          } else {
+            showResponse('An error occurred while joining the project.', true);
+          }
+        })
+        .catch(err => showResponse('Failed to join project. ' + err.message, true));
+    }
+
     function showLinks(editLink, viewLink) {
       // Clear any previous content
       linksSection.innerHTML = '';
@@ -480,7 +520,7 @@
       if (data.status === 'Completed' && data.edit && data.view) {
         showLinks(data.edit, data.view);
       } else {
-        showResponse('Error retrieving project links.', true);
+        showResponse('Your task is completed, but no links are returned.', false);
       }
     }
   </script>
